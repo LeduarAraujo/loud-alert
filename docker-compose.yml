@@ -1,0 +1,7 @@
+services:
+  loud-alert:
+    build: .
+    container_name: loud-alert
+    restart: unless-stopped
+    env_file:
+      - .env
