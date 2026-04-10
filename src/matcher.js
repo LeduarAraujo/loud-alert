@@ -1,8 +1,17 @@
+const fs = require("fs");
+const path = require("path");
 const dayjs = require("dayjs");
+require("dayjs/locale/pt-br");
+dayjs.locale("pt-br");
 const config = require("./config");
 const { getSchedule } = require("./services/lol-esports-api");
 const { getLoudMatchesFromVlrGg } = require("./services/vlr-valorant-api");
 const { sendMessage } = require("./services/telegram");
+
+const alertTemplate = fs.readFileSync(
+  path.join(__dirname, "templates", "alert.html"),
+  "utf-8",
+);
 
 const notifiedLolMatches = new Set();
 const notifiedVlrMatches = new Set();
@@ -13,22 +22,13 @@ function eventId(event) {
 }
 
 function buildAlertCommon({ teamA, teamB, league, dateLine, minutes }) {
-  const line = "========================";
-
-  return [
-    line,
-    "     \u{1F6A8}  <b>LOUD ALERTA</b>  \u{1F6A8}",
-    line,
-    "",
-    `      <b>${teamA}</b>  \u2694\uFE0F  <b>${teamB}</b>`,
-    "",
-    `          \u{1F3C6}  <i>${league}</i>`,
-    "",
-    dateLine,
-    `  \u23F0  Come\u00E7a em <b>${minutes} minutos</b>`,
-    "",
-    line,
-  ].join("\n");
+  return alertTemplate
+    .replace(/\{\{teamA\}\}/g, teamA)
+    .replace(/\{\{teamB\}\}/g, teamB)
+    .replace(/\{\{league\}\}/g, league)
+    .replace(/\{\{dateLine\}\}/g, dateLine)
+    .replace(/\{\{minutes\}\}/g, String(minutes))
+    .trim();
 }
 
 function buildAlertLol(event, minutes) {
@@ -40,13 +40,28 @@ function buildAlertLol(event, minutes) {
   return buildAlertCommon({ teamA, teamB, league, dateLine, minutes });
 }
 
+function parseVlrDate(scheduleDateLabel, timeLabel) {
+  if (!scheduleDateLabel && !timeLabel) return null;
+
+  const raw = [scheduleDateLabel, timeLabel].filter(Boolean).join(" ");
+  const native = new Date(raw);
+  if (isNaN(native.getTime())) return null;
+
+  return dayjs(native);
+}
+
 function buildAlertVlr(match, minutes) {
   const league = [match.event, match.series].filter(Boolean).join(" \u2014 ") || "Valorant (VLR.gg)";
-  const hint =
-    match.scheduleDateLabel && match.timeLabel
-      ? `${match.scheduleDateLabel} \u2022 ${match.timeLabel}`
-      : match.timeLabel || match.scheduleDateLabel || "";
-  const dateLine = hint ? `  \u{1F4C5}  ${hint}` : `  \u{1F4C5}  Grade VLR.gg`;
+  const parsed = parseVlrDate(match.scheduleDateLabel, match.timeLabel);
+
+  let dateLine;
+  if (parsed) {
+    dateLine = `  \u{1F4C5}  ${parsed.format("ddd").toUpperCase()}, ${parsed.format("DD/MM")}  \u2022  ${parsed.format("HH:mm")}`;
+    minutes = Math.max(0, parsed.diff(dayjs(), "minute"));
+  } else {
+    dateLine = `  \u{1F4C5}  Grade VLR.gg`;
+  }
+
   return buildAlertCommon({
     teamA: match.teamA,
     teamB: match.teamB,
