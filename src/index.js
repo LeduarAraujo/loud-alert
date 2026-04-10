@@ -1,13 +1,13 @@
 const cron = require("node-cron");
 const config = require("./config");
-const { checkMatches } = require("./matcher");
+const { verificarPartidas } = require("./monitor");
 
-console.log(`[init] Monitorando partidas da "${config.team.toUpperCase()}"`);
-console.log(`[init] Intervalo: ${config.checkIntervalMinutes}min | Alerta: ${config.alertThresholdMinutes}min antes`);
+console.log(`[init] Monitorando partidas da "${config.nomeTime.toUpperCase()}"`);
+console.log(`[init] Intervalo: ${config.intervaloMinutos}min | Alerta: ${config.limiteAlertaMinutos}min antes`);
 
-cron.schedule(`*/${config.checkIntervalMinutes} * * * *`, () => {
+cron.schedule(`*/${config.intervaloMinutos} * * * *`, () => {
   console.log(`[cron] Verificando jogos...`);
-  checkMatches();
+  verificarPartidas();
 });
 
-checkMatches();
+verificarPartidas();

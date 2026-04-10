@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">LOUD Alert</h1>
   <p align="center">
-    Bot que monitora partidas da <strong>LOUD</strong> e envia alertas em tempo real via <strong>Telegram</strong>.
+    Bot que monitora partidas da <strong>LOUD</strong> no <strong>LoL</strong> e <strong>VALORANT</strong>, enviando alertas em tempo real via <strong>Telegram</strong>.
   </p>
 </p>
 
@@ -9,53 +9,65 @@
 
 ## Sobre
 
-O **LOUD Alert** consulta periodicamente a API de esports da LoL Esports e, quando detecta uma partida da LOUD prestes a come�ar, dispara uma notifica��o no Telegram.
+O **LOUD Alert** consulta periodicamente duas fontes de dados:
+
+- **LoL** — API oficial do [LoL Esports](https://lolesports.com/)
+- **VALORANT** — Scraping do [VLR.gg](https://www.vlr.gg/matches)
+
+Quando detecta uma partida da LOUD prestes a começar, dispara uma notificação formatada no Telegram com data/hora em português (pt-BR).
 
 ### Principais recursos
 
-- Monitoramento autom�tico a cada 2 minutos (configur�vel)
-- Alerta quando faltam 5 minutos ou menos para o in�cio (configur�vel)
-- Preven��o de notifica��es duplicadas
-- Execu��o containerizada com Docker
+- Monitoramento automático de partidas de **LoL** e **VALORANT**
+- Alerta configurável (padrão: 5 minutos antes do início)
+- Intervalo de verificação configurável (padrão: a cada 2 minutos)
+- Datas e dias da semana em **português brasileiro**
+- Cálculo preciso de minutos restantes a partir do horário real da partida
+- Template de alerta em **arquivo HTML** editável
+- Prevenção de notificações duplicadas
+- Execução containerizada com Docker
 
 ## Estrutura do projeto
 
 ```
 loud-alert/
-|-- src/
-|   |-- config.js            # Configura��o e valida��o de vari�veis de ambiente
-|   |-- matcher.js            # L�gica de verifica��o e notifica��o de partidas
-|   |-- index.js              # Entry point - inicializa o cron job
-|   |-- services/
-|       |-- api.js            # Integra��o com a API LoL Esports
-|       |-- telegram.js       # Integra��o com a API do Telegram
-|-- .dockerignore
-|-- .env.example
-|-- .gitignore
-|-- docker-compose.yml
-|-- Dockerfile
-|-- package.json
-|-- README.md
+├── src/
+│   ├── config.js              # Configuração e validação de variáveis de ambiente
+│   ├── index.js               # Entry point — inicializa o cron job
+│   ├── monitor.js             # Lógica de verificação e notificação de partidas
+│   ├── templates/
+│   │   └── alert.html         # Template HTML do alerta enviado no Telegram
+│   └── services/
+│       ├── lol-esports.js     # Integração com a API do LoL Esports
+│       ├── vlr.js             # Scraping de partidas do VLR.gg (VALORANT)
+│       └── telegram.js        # Envio de mensagens via API do Telegram
+├── .dockerignore
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+├── Dockerfile
+├── package.json
+└── README.md
 ```
 
-## Pr�-requisitos
+## Pré-requisitos
 
 - [Docker](https://docs.docker.com/get-docker/) e [Docker Compose](https://docs.docker.com/compose/install/)
 - Um bot do Telegram criado via [@BotFather](https://t.me/BotFather)
-- O Chat ID do Telegram onde as mensagens ser�o enviadas
+- O Chat ID do Telegram onde as mensagens serão enviadas
 
-> **Sem Docker?** Voc� s� precisa do [Node.js](https://nodejs.org/) 18+.
+> **Sem Docker?** Você só precisa do [Node.js](https://nodejs.org/) 18+.
 
-## In�cio r�pido
+## Início rápido
 
-### 1. Clone o reposit�rio
+### 1. Clone o repositório
 
 ```bash
 git clone https://github.com/seu-usuario/loud-alert.git
 cd loud-alert
 ```
 
-### 2. Configure as vari�veis de ambiente
+### 2. Configure as variáveis de ambiente
 
 ```bash
 cp .env.example .env
@@ -66,6 +78,7 @@ Edite o `.env` com suas credenciais:
 ```env
 TELEGRAM_TOKEN=seu_token_aqui
 TELEGRAM_CHAT_ID=seu_chat_id_aqui
+ESPORTS_API_KEY=sua_chave_aqui
 ```
 
 ### 3. Execute com Docker
@@ -86,36 +99,48 @@ Para parar:
 docker compose down
 ```
 
-## Execu��o local (sem Docker)
+## Execução local (sem Docker)
 
 ```bash
 npm install
 npm start
 ```
 
-## Vari�veis de ambiente
+## Variáveis de ambiente
 
-| Vari�vel | Obrigat�ria | Padr�o | Descri��o |
+| Variável | Obrigatória | Padrão | Descrição |
 |---|---|---|---|
-| `TELEGRAM_TOKEN` | Sim | - | Token do bot do Telegram |
-| `TELEGRAM_CHAT_ID` | Sim | - | ID do chat que receber� os alertas |
-| `TEAM_NAME` | N�o | `loud` | Nome do time a ser monitorado |
-| `CHECK_INTERVAL_MINUTES` | N�o | `2` | Intervalo de verifica��o em minutos |
-| `ALERT_THRESHOLD_MINUTES` | N�o | `5` | Alertar quando faltar X minutos |
+| `TELEGRAM_TOKEN` | Sim | — | Token do bot do Telegram |
+| `TELEGRAM_CHAT_ID` | Sim | — | ID do chat que receberá os alertas |
+| `ESPORTS_API_KEY` | Sim | — | Chave da API do LoL Esports |
+| `TEAM_NAME` | Não | `loud` | Nome do time a ser monitorado |
+| `CHECK_INTERVAL_MINUTES` | Não | `2` | Intervalo de verificação em minutos |
+| `ALERT_THRESHOLD_MINUTES` | Não | `5` | Alertar quando faltar X minutos |
+
+## Personalizando o alerta
+
+O template da mensagem fica em `src/templates/alert.html`. Você pode editar livremente o layout sem mexer no código JavaScript. Os placeholders disponíveis são:
+
+| Placeholder | Descrição |
+|---|---|
+| `{{timeA}}` | Nome/código do primeiro time |
+| `{{timeB}}` | Nome/código do segundo time |
+| `{{liga}}` | Nome da liga / evento |
+| `{{linhaData}}` | Data e horário formatados |
+| `{{minutos}}` | Minutos restantes para o início |
+
+> A mensagem usa `parse_mode: "HTML"` do Telegram, então tags como `<b>`, `<i>`, `<a>` são suportadas.
 
 ## Tecnologias
 
-| Depend�ncia | Uso |
+| Dependência | Uso |
 |---|---|
-| [axios](https://github.com/axios/axios) | Requisi��es HTTP |
+| [axios](https://github.com/axios/axios) | Requisições HTTP |
+| [cheerio](https://github.com/cheeriojs/cheerio) | Scraping do VLR.gg (VALORANT) |
 | [node-cron](https://github.com/node-cron/node-cron) | Agendamento de tarefas |
-| [dayjs](https://github.com/iamkun/dayjs) | Manipula��o de datas |
-| [dotenv](https://github.com/motdotla/dotenv) | Vari�veis de ambiente |
+| [dayjs](https://github.com/iamkun/dayjs) | Manipulação de datas (locale pt-BR) |
+| [dotenv](https://github.com/motdotla/dotenv) | Variáveis de ambiente |
 
-## API
+## Licença
 
-Este projeto utiliza a [LoL Esports API](https://lolesports.com/) para consultar o calend�rio de partidas.
-
-## Licen�a
-
-Este projeto � distribu�do sob a licen�a [MIT](https://opensource.org/licenses/MIT).
+Este projeto é distribuído sob a licença [MIT](https://opensource.org/licenses/MIT).

@@ -1,7 +1,7 @@
 {
   "name": "loud-alert",
-  "version": "1.0.0",
-  "description": "Bot de alertas no Telegram para partidas da LOUD no VALORANT",
+  "version": "2.0.0",
+  "description": "Bot de alertas no Telegram para partidas da LOUD no LoL e VALORANT",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js"

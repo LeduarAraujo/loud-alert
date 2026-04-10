@@ -1,13 +1,13 @@
 const axios = require("axios");
 const config = require("../config");
 
-const API_URL = `https://api.telegram.org/bot${config.telegram.token}`;
+const URL_API = `https://api.telegram.org/bot${config.telegram.token}`;
 
-async function sendMessage(text) {
+async function enviarMensagem(texto) {
   try {
-    await axios.post(`${API_URL}/sendMessage`, {
+    await axios.post(`${URL_API}/sendMessage`, {
       chat_id: config.telegram.chatId,
-      text,
+      text: texto,
       parse_mode: "HTML",
     });
   } catch (err) {
@@ -15,4 +15,4 @@ async function sendMessage(text) {
   }
 }
 
-module.exports = { sendMessage };
+module.exports = { enviarMensagem };
