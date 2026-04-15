@@ -1,10 +1,16 @@
 const fs = require("fs");
 const path = require("path");
 const dayjs = require("dayjs");
+const utc = require("dayjs/plugin/utc");
+const timezone = require("dayjs/plugin/timezone");
 require("dayjs/locale/pt-br");
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.locale("pt-br");
 
 const config = require("./config");
+dayjs.tz.setDefault(config.fusoHorario);
+
 const { buscarCalendario } = require("./services/lol-esports");
 const { buscarPartidasVlr } = require("./services/vlr");
 const { enviarMensagem } = require("./services/telegram");
@@ -23,7 +29,14 @@ function gerarIdEvento(evento) {
 }
 
 function formatarLinhaData(data) {
-  return `  \u{1F4C5}  ${data.format("ddd").toUpperCase()}, ${data.format("DD/MM")}  \u2022  ${data.format("HH:mm")}`;
+  const local = data.tz(config.fusoHorario);
+  return `  \u{1F4C5}  ${local.format("ddd").toUpperCase()}, ${local.format("DD/MM")}  \u2022  ${local.format("HH:mm")}`;
+}
+
+function formatarTempoRestante(minutos) {
+  if (minutos <= 0) return "<b>Começa Agora! \u{1F534}</b>";
+  if (minutos === 1) return "Começa em <b>1 minuto</b>";
+  return `Começa em <b>${minutos} minutos</b>`;
 }
 
 function montarAlerta({ timeA, timeB, liga, linhaData, minutos }) {
@@ -32,12 +45,12 @@ function montarAlerta({ timeA, timeB, liga, linhaData, minutos }) {
     .replace(/\{\{timeB\}\}/g, timeB)
     .replace(/\{\{liga\}\}/g, liga)
     .replace(/\{\{linhaData\}\}/g, linhaData)
-    .replace(/\{\{minutos\}\}/g, String(minutos))
+    .replace(/\{\{tempoRestante\}\}/g, formatarTempoRestante(minutos))
     .trim();
 }
 
 function montarAlertaLol(evento, minutos) {
-  const data = dayjs(evento.startTime);
+  const data = dayjs.utc(evento.startTime);
   const timeA = evento.match.teams[0]?.code ?? "TBD";
   const timeB = evento.match.teams[1]?.code ?? "TBD";
   const liga = evento.league?.name ?? "";
@@ -57,7 +70,8 @@ function parsearDataVlr(dataLabel, horarioLabel) {
   const nativa = new Date(texto);
   if (isNaN(nativa.getTime())) return null;
 
-  return dayjs(nativa);
+  const fmt = dayjs(nativa).format("YYYY-MM-DD HH:mm:ss");
+  return dayjs.tz(fmt, config.fusoHorario);
 }
 
 function montarAlertaVlr(partida, minutos) {
@@ -69,7 +83,7 @@ function montarAlertaVlr(partida, minutos) {
   let linhaData;
   if (dataParsed) {
     linhaData = formatarLinhaData(dataParsed);
-    minutos = Math.max(0, dataParsed.diff(dayjs(), "minute"));
+    minutos = Math.max(0, dataParsed.diff(dayjs.utc(), "minute"));
   } else {
     linhaData = `  \u{1F4C5}  Grade VLR.gg`;
   }
@@ -108,11 +122,11 @@ async function notificarVlr(partida, minutosRestantes) {
 }
 
 async function verificarPartidas() {
-  const agora = dayjs();
+  const agora = dayjs.utc();
 
   const eventosLol = await buscarCalendario();
   for (const evento of eventosLol) {
-    const inicio = dayjs(evento.startTime);
+    const inicio = dayjs.utc(evento.startTime);
     const diferenca = inicio.diff(agora, "minute");
     if (diferenca >= 0 && diferenca <= config.limiteAlertaMinutos) {
       await notificarLol(evento, diferenca);
